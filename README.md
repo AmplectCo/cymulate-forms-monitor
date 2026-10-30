@@ -101,19 +101,21 @@ Every run, passed, failed or cancelled (including one that hits the time limit),
 
 - **Slack** (webhook in the `SLACK_WEBHOOK_INTERNAL` secret): a short summary. One line with the check
   count, passed and failed, pages, devices and run time; then, only if something went wrong, each failed
-  check with the devices it failed on and a one-line reason, and the checks that passed only after a
-  retry. Check names link to their page on the tested site. Green means everything passed, red means
-  something failed, yellow means the run was cancelled. The footer links to the run summary and the full
-  HTML report.
-- **Run summary** on the GitHub run page: the same counts plus a check × device table (✅ passed,
-  🔁 passed after a retry, ❌ failed) with linked check names, and every failed test with its error.
+  check as "page: check on devices: one-line reason" (the check is a form's name, or "links and buttons"
+  for the page check), and the checks that passed only after a retry. Page names link to the tested
+  site. Green means everything passed, red means something failed, yellow means the run was cancelled.
+  The footer links to the run summary and the full HTML report.
+- **Run summary** on the GitHub run page: the same counts plus a page × device table, one row per page,
+  where each cell sums up every check on that page and device (✅ all passed, 🔁 something passed only
+  after a retry, ❌ something failed), and every failed test with its error.
 - **Artifact** `playwright-report-<run start, UTC+3>` (e.g. `playwright-report-2026-10-30_10-00`), kept
   14 days: the HTML report, plus screenshots and one trace per failed test (from its first failed
   attempt). A passing run's report is a few MB. Unzip it and open it with
   `npx playwright show-report <folder>`; each failed test links to its trace.
 
-Each test carries a `label` annotation (its name in Slack and the table) and a `page` annotation (the path its
-name links to); give new tests both. Clickability pages get theirs from `name` and `path` in `PAGES`.
+Each test carries a `label` annotation (its check name in Slack) and a `page` annotation (the path of the
+page it belongs to); give new tests both. Page names in the report come from `name` in `PAGES` in
+`tests/clickability.spec.ts`, so a new form page needs an entry there too.
 Without a webhook (e.g. locally) the script prints the Slack text instead:
 `REPORT_FILE=<results.json> JOB_STATUS=success node scripts/report.mjs`.
 

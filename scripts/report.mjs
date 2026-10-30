@@ -1,4 +1,4 @@
-// Posts a short run summary to Slack and writes the check × device table to the GitHub job summary.
+// Posts a short run summary to Slack and writes a page × device table to the GitHub job summary.
 // Without a webhook it prints the Slack text instead.
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 
@@ -23,6 +23,9 @@ const DEVICES = {
   'desktop-safari': 'Safari',
 };
 const MARK = { expected: '✅', flaky: '🔁', unexpected: '❌', skipped: '➖' };
+// A page's cell shows its worst check on that device
+const SEVERITY = ['unexpected', 'flaky', 'expected', 'skipped'];
+const SWEEP_CHECK = 'links and buttons';
 
 function testsOf(suite, titles = []) {
   const path = suite.title ? [...titles, suite.title] : titles;
@@ -30,12 +33,14 @@ function testsOf(suite, titles = []) {
     spec.tests.map((test) => {
       const annotations = [...(test.annotations ?? []), ...test.results.flatMap((r) => r.annotations ?? [])];
       const note = (type) => annotations.find((a) => a.type === type)?.description;
+      const title = [...path.slice(1), spec.title].join(' › ');
       // Reports from before the tests carried label and page annotations
       const sweptPage = spec.title.match(/clickable elements on (\S+)/)?.[1];
       return {
-        title: [...path.slice(1), spec.title].join(' › '),
+        title,
+        sweep: title.startsWith('clickability sweep'),
         label: note('label') ?? sweptPage ?? spec.title,
-        page: note('page') ?? sweptPage,
+        page: note('page') ?? sweptPage ?? '',
         project: test.projectName,
         status: test.status,
         error: test.results.find((r) => r.error)?.error?.message ?? '',
@@ -54,6 +59,13 @@ function shortError(message) {
     .filter(Boolean);
   const cover = lines.find((line) => line.includes('intercepts pointer events'));
   const main = (lines[0] ?? '').replace(/^(Error|TimeoutError): /, '');
+  // The page check lists every covered element as "• <a href=…> Text"
+  if (main.startsWith('Covered clickable elements')) {
+    const items = lines.filter((line) => line.startsWith('•'));
+    const first = items[0]?.replace(/^•\s*<[^>]*>\s*/, '') || 'an element';
+    const more = items.length > 1 ? ` and ${items.length - 1} more` : '';
+    return `"${first}"${more} covered by ${cover ? tagName(cover) : 'another element'}`.slice(0, 220);
+  }
   return (cover ? `${main} (covered by ${tagName(cover)})` : main).slice(0, 220);
 }
 
@@ -83,45 +95,49 @@ const title = `Cymulate forms monitor: ${RUN_LABEL} ${outcome}`;
 const configOrder = (report?.config?.projects ?? []).map((p) => p.name);
 const present = new Set(tests.map((t) => t.project));
 const columns = [...configOrder.filter((name) => present.has(name)), ...[...present].filter((n) => !configOrder.includes(n))];
-const pages = new Set(ran.map((t) => t.page).filter(Boolean));
 const minutes = Math.max(1, Math.round((report?.stats?.duration ?? 0) / 60_000));
 
-// One entry per check, listing the devices it failed (or needed a retry) on
+// Page names come from the clickability sweep, which runs once per monitored page and in their order
+const pageNames = new Map(tests.filter((t) => t.sweep).map((t) => [t.page, t.label]));
+const pageName = (t) => pageNames.get(t.page) ?? t.page ?? t.label;
+const pages = [...new Set([...pageNames.keys(), ...tests.map((t) => t.page)])].filter(Boolean);
+const checkName = (t) => (t.sweep ? SWEEP_CHECK : t.label);
+
+// One entry per page and check, listing the devices it failed (or needed a retry) on
 function byCheck(list) {
   const groups = new Map();
   for (const t of list) {
-    const group = groups.get(t.label) ?? { label: t.label, page: t.page, devices: [], error: t.error };
+    const key = `${t.page}\u0000${checkName(t)}`;
+    const group = groups.get(key) ?? { page: t.page, name: pageName(t), check: checkName(t), devices: [], error: t.error };
     group.devices.push(deviceName(t.project));
-    groups.set(t.label, group);
+    groups.set(key, group);
   }
   return [...groups.values()];
 }
 
-const slackName = (check) => {
-  const url = pageUrl(check.page);
-  const name = slackEscape(check.label);
-  return url ? `<${url}|${name}>` : name;
+const slackCheck = (c) => {
+  const url = pageUrl(c.page);
+  const name = slackEscape(c.name);
+  return `${url ? `<${url}|${name}>` : name}: ${slackEscape(c.check)} on ${c.devices.join(', ')}`;
 };
 
 const text = [];
 if (ran.length) {
-  const scope = `${pages.size} pages on ${columns.length} devices, ${minutes} min`;
+  const scope = `${pages.length} pages on ${columns.length} devices, ${minutes} min`;
   if (failed.length) {
     text.push(`*${ran.length}* checks: *${ran.length - failed.length}* passed, *${failed.length}* failed  ·  ${scope}`);
     const checks = byCheck(failed);
     text.push(
       [
         '*Failed:*',
-        ...checks.slice(0, MAX_FAILED).map((c) => `• ${slackName(c)} on ${c.devices.join(', ')}: ${slackEscape(shortError(c.error))}`),
+        ...checks.slice(0, MAX_FAILED).map((c) => `• ${slackCheck(c)}: ${slackEscape(shortError(c.error))}`),
         ...(checks.length > MAX_FAILED ? [`…and ${checks.length - MAX_FAILED} more checks`] : []),
       ].join('\n'),
     );
   } else {
     text.push(`All *${ran.length}* checks passed  ·  ${scope}`);
   }
-  if (flaky.length) {
-    text.push(`Passed after a retry: ${byCheck(flaky).map((c) => `${slackName(c)} on ${c.devices.join(', ')}`).join('; ')}`);
-  }
+  if (flaky.length) text.push(`Passed after a retry: ${byCheck(flaky).map(slackCheck).join('; ')}`);
 } else if (cancelled) {
   text.push('The run was cancelled or hit the time limit before the tests reported results.');
 } else if (!passed) {
@@ -132,25 +148,28 @@ if (ran.length) {
 if (GITHUB_STEP_SUMMARY) {
   const md = [`## ${title}`, ''];
   if (ran.length) {
+    const worst = (page, project) =>
+      SEVERITY.find((status) => tests.some((t) => t.page === page && t.project === project && t.status === status));
     md.push(
-      `**${ran.length}** checks: **${ran.length - failed.length}** passed${failed.length ? `, **${failed.length}** failed` : ''} · ${pages.size} pages on ${columns.length} devices, ${minutes} min`,
+      `**${ran.length}** checks: **${ran.length - failed.length}** passed${failed.length ? `, **${failed.length}** failed` : ''} · ${pages.length} pages on ${columns.length} devices, ${minutes} min`,
       '',
-      `| Check | ${columns.map(deviceName).join(' | ')} |`,
+      `| Page | ${columns.map(deviceName).join(' | ')} |`,
       `|---|${columns.map(() => ':-:').join('|')}|`,
-      ...[...new Map(tests.map((t) => [t.label, t])).values()].map((check) => {
-        const url = pageUrl(check.page);
-        const cells = columns.map((c) => MARK[tests.find((t) => t.label === check.label && t.project === c)?.status] ?? '');
-        return `| ${url ? `[${check.label}](${url})` : check.label} | ${cells.join(' | ')} |`;
+      ...pages.map((page) => {
+        const name = pageNames.get(page) ?? page;
+        const url = pageUrl(page);
+        return `| ${url ? `[${name}](${url})` : name} | ${columns.map((c) => MARK[worst(page, c)] ?? '').join(' | ')} |`;
       }),
       '',
-      '✅ passed · 🔁 passed after a retry · ❌ failed',
+      'Each cell covers every check on that page and device: its forms and its links and buttons.',
+      '✅ all passed · 🔁 something passed only after a retry · ❌ something failed',
       '',
     );
   } else {
     md.push(text.join('\n'), '');
   }
   if (failed.length) {
-    md.push('### Failed', '', ...failed.map((f) => `- **${deviceName(f.project)}** · ${f.title}  \n  \`${shortError(f.error).replaceAll('`', "'")}\``), '');
+    md.push('### Failed', '', ...failed.map((f) => `- **${pageName(f)}** · ${checkName(f)} · ${deviceName(f.project)}  \n  \`${shortError(f.error).replaceAll('`', "'")}\``), '');
   }
   if (ARTIFACT_URL) md.push(`[Full HTML report with traces](${ARTIFACT_URL})`, '');
   appendFileSync(GITHUB_STEP_SUMMARY, `${md.join('\n')}\n`);
