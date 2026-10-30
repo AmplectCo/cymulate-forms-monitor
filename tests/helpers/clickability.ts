@@ -1,16 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-// Floating widgets that legitimately sit over the content; users scroll past them.
-// Salespeak matches stay inside <body>: once the chat is refused the site puts cy-salespeak-hidden on <html>,
-// and disabling pointer events there would disable the whole page.
-const FLOATING_WIDGETS = [
-  '#INDmenu-btn',
-  '#ot-sdk-btn-floating',
-  '.grecaptcha-badge',
-  'body [id*="salespeak" i]',
-  'body [class*="salespeak" i]',
-];
-
+// Floating widgets are taken out of hit testing by visit() in fixtures.ts.
 // Carousel slides and screen-reader-only parts are hidden on purpose
 const SKIP_INSIDE = '.swiper, [aria-hidden="true"], [inert], .gform_validation_container';
 
@@ -54,8 +44,6 @@ async function settle(page: Page): Promise<void> {
 }
 
 export async function findCoveredElements(page: Page, root = 'main'): Promise<{ checked: number; findings: Finding[] }> {
-  await page.addStyleTag({ content: `${FLOATING_WIDGETS.join(', ')} { pointer-events: none !important; }` });
-
   const total = await page
     .locator(root)
     .first()

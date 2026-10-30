@@ -15,11 +15,26 @@ const BLOCKED_HOSTS = [
   // HubSpot collected forms captures any form submit on the page, the demo "Next" included
   /(^|\.)hscollectedforms\.net$/,
   /(^|\.)lfeeder\.com$/,
+  /(^|\.)hotjar\.(com|io)$/,
+  /(^|\.)remarketstats\.com$/,
+  /^tracking\.g2crowd\.com$/,
 ];
 
 // Hit endpoints only: gtm.js itself loads so the page keeps the widgets it injects
 const GOOGLE_HOSTS = /(^|\.)(google|googletagmanager)\.com$/;
-const GOOGLE_BEACON_PATHS = /^\/(g\/collect|j\/collect|collect|td|ccm\/collect|pagead\/|ads\/)/;
+const GOOGLE_BEACON_PATHS = /^\/(g\/collect|j\/collect|collect|td|ccm\/collect|pagead\/|ads\/|rmkt\/)/;
+
+// Floating widgets that legitimately sit over the content; users scroll past them, so no check counts
+// them as overlaps. Salespeak matches stay inside <body>: once the chat is refused the site puts
+// cy-salespeak-hidden on <html>, and disabling pointer events there would disable the whole page.
+const FLOATING_WIDGETS = [
+  '#INDmenu-btn',
+  '#ot-sdk-btn-floating',
+  '.grecaptcha-badge',
+  'body [id*="salespeak" i]',
+  'body [class*="salespeak" i]',
+];
+const FLOATING_WIDGETS_CSS = `${FLOATING_WIDGETS.flatMap((s) => [s, `${s} *`]).join(', ')} { pointer-events: none !important; }`;
 
 function isTracker(url: URL): boolean {
   if (BLOCKED_HOSTS.some((host) => host.test(url.hostname))) return true;
@@ -77,6 +92,7 @@ export async function visit(page: Page, path: string): Promise<void> {
   const url = new URL(path, `${BASE_URL}/`);
   if (IS_LOCAL) url.searchParams.set('nowprocket', '1');
   await page.goto(url.toString(), { waitUntil: 'domcontentloaded' });
+  await page.addStyleTag({ content: FLOATING_WIDGETS_CSS });
   // WP Rocket holds back scripts until the first user interaction
   await page.mouse.move(2, 2);
   await page.mouse.move(24, 24);

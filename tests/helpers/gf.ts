@@ -31,8 +31,12 @@ function locate(form: Locator, field: Field): Locator {
 export async function fillText(form: Locator, field: Field, value: string): Promise<void> {
   const input = locate(form, field);
   await input.click({ trial: true });
-  await input.fill(value);
-  await expect(input).toHaveValue(value);
+  // A field that scripts reset once while the page finishes loading gets typed again; one that keeps
+  // losing its value still fails
+  await expect(async () => {
+    if ((await input.inputValue()) !== value) await input.fill(value);
+    await expect(input).toHaveValue(value, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 export async function choose(form: Locator, field: Field, option: string): Promise<void> {
@@ -47,6 +51,9 @@ export async function acceptTerms(form: Locator, checkboxId: string): Promise<vo
   const label = form
     .locator('label', { hasText: 'I accept the Privacy Policy' })
     .or(form.locator(`label[for="${checkboxId}"]`));
+  // Playwright scrolls just enough to show it, which can leave the box under the bottom edge
+  // Instant: the site scrolls smoothly, and a click mid-scroll can miss the box
+  await label.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
   await label.check({ position: { x: 10, y: 9 } });
   await expect(form.locator(`#${checkboxId}`)).toBeChecked();
 }

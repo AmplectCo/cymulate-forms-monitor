@@ -99,19 +99,20 @@ failing test twice; a test counts as failed only if it still fails after the ret
 Every run, passed, failed or cancelled (including one that hits the time limit), is reported by
 `scripts/report.mjs`:
 
-- **Slack** (webhook in the `SLACK_WEBHOOK_INTERNAL` secret): total, passed and failed counts, devices
-  and run time, then a check × device matrix in two groups, Forms and Pages (✅ passed, 🔁 passed after a
-  retry, ❌ failed; columns follow the device line above them), where each check's name links to its
-  page on the tested site, then each failed test with its device and the first lines of the error. Green
-  means everything passed, red means something failed, yellow means the run was cancelled. The footer
-  links to the run summary and the full HTML report.
-- **Run summary** on the GitHub run page: the same counts and matrix as linked tables.
+- **Slack** (webhook in the `SLACK_WEBHOOK_INTERNAL` secret): a short summary. One line with the check
+  count, passed and failed, pages, devices and run time; then, only if something went wrong, each failed
+  check with the devices it failed on and a one-line reason, and the checks that passed only after a
+  retry. Check names link to their page on the tested site. Green means everything passed, red means
+  something failed, yellow means the run was cancelled. The footer links to the run summary and the full
+  HTML report.
+- **Run summary** on the GitHub run page: the same counts plus a check × device table (✅ passed,
+  🔁 passed after a retry, ❌ failed) with linked check names, and every failed test with its error.
 - **Artifact** `playwright-report-<run start, UTC+3>` (e.g. `playwright-report-2026-10-30_10-00`), kept
   14 days: the HTML report, plus screenshots and one trace per failed test (from its first failed
   attempt). A passing run's report is a few MB. Unzip it and open it with
   `npx playwright show-report <folder>`; each failed test links to its trace.
 
-Each test carries a `label` annotation (its row name in the matrix) and a `page` annotation (the path its
+Each test carries a `label` annotation (its name in Slack and the table) and a `page` annotation (the path its
 name links to); give new tests both. Clickability pages get theirs from `name` and `path` in `PAGES`.
 Without a webhook (e.g. locally) the script prints the Slack text instead:
 `REPORT_FILE=<results.json> JOB_STATUS=success node scripts/report.mjs`.
@@ -134,7 +135,9 @@ fails with "No tests found" and the alert says the run failed before reporting r
 ## Maintenance
 
 - **Pages in the sweep**: `PAGES` in `tests/clickability.spec.ts`.
-- **Floating widgets** that may sit over content: `FLOATING_WIDGETS` in `tests/helpers/clickability.ts`.
+- **Floating widgets** that may sit over content (cookie and accessibility buttons, reCAPTCHA badge,
+  Salespeak): `FLOATING_WIDGETS` in `tests/fixtures.ts`. `visit()` takes them out of hit testing for every
+  test, since users scroll past them.
 - **Form fields**: each spec lists label text plus the GF input id as a fallback.
 - **Playwright upgrade**: bump `@playwright/test` in `package.json` and the container tag in
   `.github/workflows/run-tests.yml` together.
