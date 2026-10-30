@@ -1,0 +1,21 @@
+{
+  "name": "cymulate-forms-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright monitoring of the cymulate.com lead forms on mobile and desktop browsers",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:local": "BASE_URL=https://cymulate.local playwright test",
+    "typecheck": "tsc --noEmit",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "20.19.43",
+    "typescript": "7.0.2"
+  }
+}

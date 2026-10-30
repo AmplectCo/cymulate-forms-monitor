@@ -1,0 +1,80 @@
+name: Run tests
+
+on:
+  workflow_call:
+    inputs:
+      label:
+        description: Run name shown in the Slack alert
+        required: true
+        type: string
+      base_url:
+        required: false
+        type: string
+        default: https://cymulate.com
+      grep:
+        description: Playwright --grep filter, empty for all tests
+        required: false
+        type: string
+        default: ''
+      projects:
+        description: Space-separated Playwright projects, empty for all
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    container:
+      # Keep the tag in step with @playwright/test in package.json
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --user 1001
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run Playwright tests
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          GREP: ${{ inputs.grep }}
+          PROJECTS: ${{ inputs.projects }}
+        run: |
+          args=()
+          if [[ -n "$GREP" ]]; then args+=(--grep "$GREP"); fi
+          for project in $PROJECTS; do args+=(--project="$project"); done
+          npx playwright test "${args[@]}"
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-attempt-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Send Slack alert
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_INTERNAL }}
+          RUN_LABEL: ${{ inputs.label }}
+          BASE_URL: ${{ inputs.base_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/slack-alert.mjs

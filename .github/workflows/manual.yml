@@ -1,0 +1,41 @@
+name: Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Site to test
+        required: true
+        default: https://cymulate.com
+        type: string
+      grep:
+        description: Test filter (e.g. @smoke or "Contact Us"), empty for all
+        required: false
+        default: ''
+        type: string
+      project:
+        description: Device
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - iphone
+          - pixel
+          - ipad
+          - desktop-chrome
+          - desktop-firefox
+          - desktop-safari
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  manual:
+    uses: ./.github/workflows/run-tests.yml
+    with:
+      label: Manual
+      base_url: ${{ inputs.base_url }}
+      grep: ${{ inputs.grep }}
+      projects: ${{ inputs.project != 'all' && inputs.project || '' }}
+    secrets: inherit

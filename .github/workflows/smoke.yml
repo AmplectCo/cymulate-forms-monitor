@@ -1,0 +1,16 @@
+name: Smoke
+
+on:
+  schedule:
+    - cron: '0 7 * * *'   # 10:00 Minsk
+    - cron: '0 15 * * *'  # 18:00 Minsk
+
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  smoke:
+    uses: ./.github/workflows/run-tests.yml
+    with:
+      label: Smoke
+    secrets: inherit
