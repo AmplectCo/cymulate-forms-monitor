@@ -1,7 +1,7 @@
 import { test, visit } from './fixtures';
 import { acceptTerms, choose, fillText, TEST_DATA, trialClick, waitForForm } from './helpers/gf';
 
-test('Free Trial form (form 10) can be filled and Submit is clickable', async ({ page }) => {
+test('Free Trial form (form 10) can be filled and Submit is clickable', { annotation: [{ type: 'label', description: 'Free Trial form' }, { type: 'page', description: '/free-trial/' }] }, async ({ page }) => {
   await visit(page, '/free-trial/');
   const form = await waitForForm(page, 10);
 

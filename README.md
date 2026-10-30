@@ -15,8 +15,12 @@ mobile for 2.5 weeks, and neither the Postman API monitor nor the Percy screensh
 | `contact-form.spec.ts` (form 3) `@smoke` | `/contact-us/` | All fields filled, Submit gets a trial click |
 | `report-form.spec.ts` (form 8) | Gartner report page | Same |
 | `free-trial-form.spec.ts` (form 10) | `/free-trial/` | Same |
-| `header-cta.spec.ts` `@smoke` | `/` | The header "Book a Demo" button (behind the burger on mobile) is clickable and points to `/schedule-a-demo/` |
-| `clickability.spec.ts` (`/schedule-a-demo/` is `@smoke`) | 8 key pages | Every visible link, button and field inside `<main>` gets a trial click |
+| `healthcare-forms.spec.ts` (forms 4 and 5) | `/healthcare-hub/` | Inline form: same. Popup form: "Book a Demo" is really clicked to open the modal, then same |
+| `demo-ab-form.spec.ts` (form 12) | `/schedule-a-demo-a-b/` | Same |
+| `workshop-india-form.spec.ts` (form 15) | `/cymulate-customer-technical-workshop-india/` | Same |
+| `xm-cyber-guide-form.spec.ts` (form 11) | `/xm-cyber-transition-guide/` | Same |
+| `header-cta.spec.ts` `@smoke` | `/contact-us/` | The header "Book a Demo" button (behind the burger on mobile) is clickable and points to `/schedule-a-demo/` |
+| `clickability.spec.ts` (`/schedule-a-demo/` is `@smoke`) | the 8 form pages above | Every visible link, button and field inside `<main>` gets a trial click |
 
 A **trial click** (`click({ trial: true })`) runs Playwright's actionability checks, including "is this
 element the one that receives the tap", without clicking. An overlay fails it with
@@ -92,19 +96,25 @@ on desktop. If it ever goes red, the detectors themselves are broken.
 Both call `run-tests.yml`, which runs in the `mcr.microsoft.com/playwright` container and retries a
 failing test twice; a test counts as failed only if it still fails after the retries.
 
-Every run, passed, failed or cancelled (including one that hits the time limit), posts a Slack message
-to the webhook in the `SLACK_WEBHOOK_INTERNAL` secret: the total, passed and failed test counts, the
-number of devices and the run time, plus a link to the run. Green means everything passed, red means
-something failed, yellow means the run was cancelled. The message also lists any test that passed only
-after a retry.
+Every run, passed, failed or cancelled (including one that hits the time limit), is reported by
+`scripts/report.mjs`:
 
-On failure:
-
-- the Slack message lists each failed test with its device and the first lines of the error;
-- the HTML report with screenshots and one trace per failed test (from its first failed attempt) is
-  attached to the run as the `playwright-report-<run start, UTC+3>` artifact (e.g.
-  `playwright-report-2026-10-30_10-00`) for 14 days. Unzip it and open it with
+- **Slack** (webhook in the `SLACK_WEBHOOK_INTERNAL` secret): total, passed and failed counts, devices
+  and run time, then a check × device matrix in two groups, Forms and Pages (✅ passed, 🔁 passed after a
+  retry, ❌ failed; columns follow the device line above them), where each check's name links to its
+  page on the tested site, then each failed test with its device and the first lines of the error. Green
+  means everything passed, red means something failed, yellow means the run was cancelled. The footer
+  links to the run summary and the full HTML report.
+- **Run summary** on the GitHub run page: the same counts and matrix as linked tables.
+- **Artifact** `playwright-report-<run start, UTC+3>` (e.g. `playwright-report-2026-10-30_10-00`), kept
+  14 days: the HTML report, plus screenshots and one trace per failed test (from its first failed
+  attempt). A passing run's report is a few MB. Unzip it and open it with
   `npx playwright show-report <folder>`; each failed test links to its trace.
+
+Each test carries a `label` annotation (its row name in the matrix) and a `page` annotation (the path its
+name links to); give new tests both. Clickability pages get theirs from `name` and `path` in `PAGES`.
+Without a webhook (e.g. locally) the script prints the Slack text instead:
+`REPORT_FILE=<results.json> JOB_STATUS=success node scripts/report.mjs`.
 
 To check the Slack alert end to end, run **Manual** with the test filter `no-such-test`: Playwright
 fails with "No tests found" and the alert says the run failed before reporting results.

@@ -1,8 +1,9 @@
 import { expect, test, visit } from './fixtures';
 import { trialClick } from './helpers/gf';
 
-test('header demo CTA is clickable and leads to the demo page', { tag: '@smoke' }, async ({ page }) => {
-  await visit(page, '/');
+// Checked on a form page: the header is the same across the site
+test('header demo CTA is clickable and leads to the demo page', { tag: '@smoke', annotation: [{ type: 'label', description: 'Header demo CTA' }, { type: 'page', description: '/contact-us/' }] }, async ({ page }) => {
+  await visit(page, '/contact-us/');
   const header = page.locator('header.header');
   await expect(header).toBeVisible();
 

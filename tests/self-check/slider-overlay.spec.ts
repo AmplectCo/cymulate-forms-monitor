@@ -19,7 +19,7 @@ async function serveBuggySliderCss(page: Page): Promise<() => number> {
 }
 
 test.describe('self-check: the demo test catches the slider overlay', () => {
-  test('Next is blocked on stacked layouts and works on desktop', async ({ page }) => {
+  test('Next is blocked on stacked layouts and works on desktop', { annotation: [{ type: 'label', description: 'Self-check: Next' }, { type: 'page', description: DEMO_PATH }] }, async ({ page }) => {
     const served = await serveBuggySliderCss(page);
     await visit(page, DEMO_PATH);
     const form = await openDemoForm(page);
@@ -33,7 +33,7 @@ test.describe('self-check: the demo test catches the slider overlay', () => {
     }
   });
 
-  test('the clickability sweep reports Next on stacked layouts only', async ({ page }) => {
+  test('the clickability sweep reports Next on stacked layouts only', { annotation: [{ type: 'label', description: 'Self-check: sweep' }, { type: 'page', description: DEMO_PATH }] }, async ({ page }) => {
     test.setTimeout(240_000);
     const served = await serveBuggySliderCss(page);
     await visit(page, DEMO_PATH);

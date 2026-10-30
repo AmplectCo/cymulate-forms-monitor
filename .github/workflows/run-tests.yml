@@ -65,16 +65,19 @@ jobs:
           for project in $PROJECTS; do args+=(--project="$project"); done
           npx playwright test "${args[@]}"
 
+      # Every run keeps its report; a passing one is a few MB since traces are kept for failures only
       - name: Upload report
-        if: failure()
+        id: upload
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report-${{ steps.started.outputs.at }}
           # The HTML report already holds copies of the traces and screenshots from test-results/
           path: playwright-report/
+          if-no-files-found: ignore
           retention-days: 14
 
-      - name: Send Slack notification
+      - name: Report to Slack and the job summary
         # always(): a run that hits timeout-minutes is cancelled, not failed, and still needs a message
         if: always()
         env:
@@ -83,4 +86,5 @@ jobs:
           RUN_LABEL: ${{ inputs.label }}
           BASE_URL: ${{ inputs.base_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node scripts/slack-alert.mjs
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: node scripts/report.mjs

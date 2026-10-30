@@ -9,7 +9,7 @@ import {
 } from './helpers/demo-form';
 
 test.describe('Request a Demo form (form 1)', () => {
-  test('step 1 can be filled and Next responds', { tag: '@smoke' }, async ({ page }) => {
+  test('step 1 can be filled and Next responds', { tag: '@smoke', annotation: [{ type: 'label', description: 'Demo form: step 1' }, { type: 'page', description: DEMO_PATH }] }, async ({ page }) => {
     await visit(page, DEMO_PATH);
     const form = await openDemoForm(page);
     await fillStepOne(form);
@@ -17,7 +17,7 @@ test.describe('Request a Demo form (form 1)', () => {
     test.info().annotations.push({ type: 'next', description: outcome });
   });
 
-  test('step 2 can be filled and Get a Demo is clickable', { tag: '@smoke' }, async ({ page }) => {
+  test('step 2 can be filled and Get a Demo is clickable', { tag: '@smoke', annotation: [{ type: 'label', description: 'Demo form: step 2' }, { type: 'page', description: DEMO_PATH }] }, async ({ page }) => {
     await visit(page, DEMO_PATH);
     const form = await openDemoForm(page);
     await fillStepOne(form);

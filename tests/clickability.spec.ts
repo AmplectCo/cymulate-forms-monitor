@@ -1,20 +1,28 @@
 import { expect, test, visit } from './fixtures';
 import { findCoveredElements } from './helpers/clickability';
 
+// The pages that hold the monitored forms; `name` is how the page is called in the report, linked to it
 const PAGES = [
-  { path: '/schedule-a-demo/', smoke: true },
-  { path: '/contact-us/' },
-  { path: '/free-trial/' },
-  { path: '/report/2026-gartner-market-guide-for-adversarial-exposure-validation/' },
-  { path: '/validate-cisa-threats/' },
-  { path: '/cowork-cisa-threats/' },
-  { path: '/' },
-  { path: '/platform/' },
+  { path: '/schedule-a-demo/', name: 'Schedule a Demo', smoke: true },
+  { path: '/contact-us/', name: 'Contact Us' },
+  { path: '/free-trial/', name: 'Free Trial' },
+  { path: '/report/2026-gartner-market-guide-for-adversarial-exposure-validation/', name: 'Gartner Report' },
+  { path: '/healthcare-hub/', name: 'Healthcare Hub' },
+  { path: '/schedule-a-demo-a-b/', name: 'Schedule a Demo A/B' },
+  { path: '/cymulate-customer-technical-workshop-india/', name: 'Technical Workshop India' },
+  { path: '/xm-cyber-transition-guide/', name: 'XM Cyber Transition Guide' },
 ];
 
 test.describe('clickability sweep', () => {
-  for (const { path, smoke } of PAGES) {
-    test(`nothing covers clickable elements on ${path}`, { tag: smoke ? '@smoke' : [] }, async ({ page }) => {
+  for (const { path, name, smoke } of PAGES) {
+    const details = {
+      tag: smoke ? '@smoke' : [],
+      annotation: [
+        { type: 'label', description: name },
+        { type: 'page', description: path },
+      ],
+    };
+    test(`nothing covers clickable elements on ${path}`, details, async ({ page }) => {
       test.setTimeout(240_000);
       await visit(page, path);
       await page.waitForLoadState('load');

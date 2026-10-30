@@ -1,7 +1,7 @@
 import { test, visit } from './fixtures';
 import { acceptTerms, choose, fillText, TEST_DATA, trialClick, waitForForm } from './helpers/gf';
 
-test('Contact Us form (form 3) can be filled and Submit is clickable', { tag: '@smoke' }, async ({ page }) => {
+test('Contact Us form (form 3) can be filled and Submit is clickable', { tag: '@smoke', annotation: [{ type: 'label', description: 'Contact Us form' }, { type: 'page', description: '/contact-us/' }] }, async ({ page }) => {
   await visit(page, '/contact-us/');
   const form = await waitForForm(page, 3);
 

@@ -1,7 +1,7 @@
 import { test, visit } from './fixtures';
 import { acceptTerms, choose, fillText, TEST_DATA, trialClick, waitForForm } from './helpers/gf';
 
-test('Download the Report form (form 8) can be filled and Download is clickable', async ({ page }) => {
+test('Download the Report form (form 8) can be filled and Download is clickable', { annotation: [{ type: 'label', description: 'Report download form' }, { type: 'page', description: '/report/2026-gartner-market-guide-for-adversarial-exposure-validation/' }] }, async ({ page }) => {
   await visit(page, '/report/2026-gartner-market-guide-for-adversarial-exposure-validation/');
   const form = await waitForForm(page, 8);
 
