@@ -86,7 +86,7 @@ on desktop. If it ever goes red, the detectors themselves are broken.
 
 | Workflow | When | Scope |
 |---|---|---|
-| `smoke.yml` | twice a day, 10:00 and 18:00 Minsk (07:00 and 15:00 UTC) | all tests on all 6 devices |
+| `smoke.yml` | daily at 07:00 UTC (10:00 UTC+3) | all tests on all 6 devices |
 | `manual.yml` | Actions → Manual → Run workflow | choose base URL, test filter and device |
 
 Both call `run-tests.yml`, which runs in the `mcr.microsoft.com/playwright` container, retries a
