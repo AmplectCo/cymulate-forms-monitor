@@ -37,6 +37,11 @@ jobs:
       run:
         shell: bash
     steps:
+      # Local time (UTC+3) without relying on tzdata in the container; artifact names may not contain colons
+      - name: Note start time
+        id: started
+        run: echo "at=$(date -u -d '+3 hours' +%Y-%m-%d_%H-%M)" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -64,16 +69,17 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-attempt-${{ github.run_attempt }}
-          path: |
-            playwright-report/
-            test-results/
+          name: playwright-report-${{ steps.started.outputs.at }}
+          # The HTML report already holds copies of the traces and screenshots from test-results/
+          path: playwright-report/
           retention-days: 14
 
-      - name: Send Slack alert
-        if: failure()
+      - name: Send Slack notification
+        # always(): a run that hits timeout-minutes is cancelled, not failed, and still needs a message
+        if: always()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_INTERNAL }}
+          JOB_STATUS: ${{ job.status }}
           RUN_LABEL: ${{ inputs.label }}
           BASE_URL: ${{ inputs.base_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

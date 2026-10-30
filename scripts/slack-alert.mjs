@@ -1,27 +1,26 @@
-// Posts the failed tests of a CI run to Slack. Reads the Playwright JSON report.
+// Posts the result of a CI run to Slack. Reads the Playwright JSON report.
 import { existsSync, readFileSync } from 'node:fs';
 
-const { SLACK_WEBHOOK_URL, RUN_LABEL = 'Run', BASE_URL = '', RUN_URL = '' } = process.env;
+const { SLACK_WEBHOOK_URL, JOB_STATUS = 'failure', RUN_LABEL = 'Run', BASE_URL = '', RUN_URL = '' } = process.env;
 const REPORT = 'test-results/results.json';
 const MAX_LINES = 15;
 
 if (!SLACK_WEBHOOK_URL) {
-  console.log('::warning::SLACK_WEBHOOK_INTERNAL is not set, skipping the Slack alert');
+  console.log('::warning::SLACK_WEBHOOK_INTERNAL is not set, skipping the Slack notification');
   process.exit(0);
 }
 
-function failedTests(suite, titles = []) {
+function testsOf(suite, titles = []) {
   const path = suite.title ? [...titles, suite.title] : titles;
   const fromSpecs = (suite.specs ?? []).flatMap((spec) =>
-    spec.tests
-      .filter((test) => test.status === 'unexpected')
-      .map((test) => ({
-        title: [...path.slice(1), spec.title].join(' › '),
-        project: test.projectName,
-        error: test.results.at(-1)?.error?.message ?? '',
-      })),
+    spec.tests.map((test) => ({
+      title: [...path.slice(1), spec.title].join(' › '),
+      project: test.projectName,
+      status: test.status,
+      error: test.results.at(-1)?.error?.message ?? '',
+    })),
   );
-  return [...fromSpecs, ...(suite.suites ?? []).flatMap((child) => failedTests(child, path))];
+  return [...fromSpecs, ...(suite.suites ?? []).flatMap((child) => testsOf(child, path))];
 }
 
 function firstLines(message) {
@@ -35,27 +34,47 @@ function firstLines(message) {
     .slice(0, 300);
 }
 
-let lines = ['The run failed before the tests reported results. Open the run for details.'];
-if (existsSync(REPORT)) {
-  const report = JSON.parse(readFileSync(REPORT, 'utf8'));
-  const failed = report.suites.flatMap((suite) => failedTests(suite));
-  if (failed.length) {
-    lines = failed.slice(0, MAX_LINES).map((f) => `• *[${f.project}]* ${f.title}\n      ${firstLines(f.error)}`);
-    if (failed.length > MAX_LINES) lines.push(`…and ${failed.length - MAX_LINES} more`);
-  } else if (report.errors?.length) {
-    lines = report.errors.slice(0, 3).map((error) => `• ${firstLines(error.message ?? '')}`);
-  }
+const report = existsSync(REPORT) ? JSON.parse(readFileSync(REPORT, 'utf8')) : null;
+const tests = (report?.suites ?? []).flatMap((suite) => testsOf(suite)).filter((t) => t.status !== 'skipped');
+const failed = tests.filter((t) => t.status === 'unexpected');
+// A pass that needed a retry is an early sign of a flaky page or test
+const flaky = tests.filter((t) => t.status === 'flaky');
+const passed = JOB_STATUS === 'success';
+const cancelled = JOB_STATUS === 'cancelled';
+
+const lines = [];
+if (tests.length) {
+  const counts = [`Total: *${tests.length}*`, `Passed: *${tests.length - failed.length}*`];
+  if (failed.length) counts.push(`Failed: *${failed.length}*`);
+  const devices = new Set(tests.map((t) => t.project)).size;
+  const minutes = Math.max(1, Math.round((report.stats?.duration ?? 0) / 60_000));
+  lines.push(counts.join('  ·  '), `${devices} devices, ${minutes} min`);
+} else if (cancelled) {
+  lines.push('The run was cancelled or hit the time limit before the tests reported results.');
+} else if (!passed) {
+  lines.push('The run failed before the tests reported results. Open the run for details.');
+  for (const error of (report?.errors ?? []).slice(0, 3)) lines.push(`• ${firstLines(error.message ?? '')}`);
 }
 
+if (failed.length) {
+  lines.push('', '*Failed:*', ...failed.slice(0, MAX_LINES).map((f) => `• *[${f.project}]* ${f.title}\n      ${firstLines(f.error)}`));
+  if (failed.length > MAX_LINES) lines.push(`…and ${failed.length - MAX_LINES} more`);
+}
+if (flaky.length) {
+  lines.push('', '*Passed only after a retry:*', ...flaky.slice(0, MAX_LINES).map((f) => `• *[${f.project}]* ${f.title}`));
+}
+
+const outcome = passed ? 'passed' : cancelled ? 'cancelled' : 'failed';
+const title = `Cymulate forms monitor: ${RUN_LABEL} ${outcome}`;
 const payload = {
   attachments: [
     {
-      fallback: `Cymulate forms monitor: ${RUN_LABEL} failed`,
-      color: 'danger',
-      title: `Cymulate forms monitor: ${RUN_LABEL} failed`,
+      fallback: title,
+      color: passed ? 'good' : cancelled ? 'warning' : 'danger',
+      title,
       title_link: RUN_URL,
       text: lines.join('\n'),
-      footer: `${BASE_URL} | <${RUN_URL}|Open run, report and traces>`,
+      footer: `${BASE_URL} | <${RUN_URL}|${passed ? 'Open run' : 'Open run, report and traces'}>`,
     },
   ],
 };
@@ -69,4 +88,4 @@ if (!response.ok) {
   console.log(`::error::Slack responded ${response.status}: ${await response.text()}`);
   process.exit(1);
 }
-console.log('Slack alert sent');
+console.log('Slack notification sent');

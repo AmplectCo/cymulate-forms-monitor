@@ -1,12 +1,14 @@
 import type { Locator, Page } from '@playwright/test';
 
-// Floating widgets that legitimately sit over the content; users scroll past them
+// Floating widgets that legitimately sit over the content; users scroll past them.
+// Salespeak matches stay inside <body>: once the chat is refused the site puts cy-salespeak-hidden on <html>,
+// and disabling pointer events there would disable the whole page.
 const FLOATING_WIDGETS = [
   '#INDmenu-btn',
   '#ot-sdk-btn-floating',
   '.grecaptcha-badge',
-  '[id*="salespeak" i]',
-  '[class*="salespeak" i]',
+  'body [id*="salespeak" i]',
+  'body [class*="salespeak" i]',
 ];
 
 // Carousel slides and screen-reader-only parts are hidden on purpose

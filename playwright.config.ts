@@ -26,9 +26,10 @@ export default defineConfig({
     ignoreHTTPSErrors: IS_LOCAL,
     actionTimeout: 15_000,
     navigationTimeout: 60_000,
-    trace: 'retain-on-failure',
+    // One trace per failed test, not per retry; its screencast stands in for a video
+    trace: 'retain-on-first-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'off',
   },
   projects: [
     { name: 'iphone', use: device('iPhone 15') },

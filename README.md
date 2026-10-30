@@ -89,15 +89,22 @@ on desktop. If it ever goes red, the detectors themselves are broken.
 | `smoke.yml` | daily at 07:00 UTC (10:00 UTC+3) | all tests on all 6 devices |
 | `manual.yml` | Actions → Manual → Run workflow | choose base URL, test filter and device |
 
-Both call `run-tests.yml`, which runs in the `mcr.microsoft.com/playwright` container, retries a
-failing test twice, and only alerts when a test still fails after the retries.
+Both call `run-tests.yml`, which runs in the `mcr.microsoft.com/playwright` container and retries a
+failing test twice; a test counts as failed only if it still fails after the retries.
+
+Every run, passed, failed or cancelled (including one that hits the time limit), posts a Slack message
+to the webhook in the `SLACK_WEBHOOK_INTERNAL` secret: the total, passed and failed test counts, the
+number of devices and the run time, plus a link to the run. Green means everything passed, red means
+something failed, yellow means the run was cancelled. The message also lists any test that passed only
+after a retry.
 
 On failure:
 
-- a Slack message goes to the webhook in the `SLACK_WEBHOOK_INTERNAL` secret, listing each failed test
-  with its device and the first lines of the error, plus a link to the run;
-- the HTML report, screenshots, videos and traces are attached to the run as the
-  `playwright-report-attempt-N` artifact for 14 days.
+- the Slack message lists each failed test with its device and the first lines of the error;
+- the HTML report with screenshots and one trace per failed test (from its first failed attempt) is
+  attached to the run as the `playwright-report-<run start, UTC+3>` artifact (e.g.
+  `playwright-report-2026-10-30_10-00`) for 14 days. Unzip it and open it with
+  `npx playwright show-report <folder>`; each failed test links to its trace.
 
 To check the Slack alert end to end, run **Manual** with the test filter `no-such-test`: Playwright
 fails with "No tests found" and the alert says the run failed before reporting results.
