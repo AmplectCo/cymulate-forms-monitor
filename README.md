@@ -90,7 +90,7 @@ on desktop. If it ever goes red, the detectors themselves are broken.
 
 | Workflow | When | Scope |
 |---|---|---|
-| `smoke.yml` | daily at 07:00 UTC (10:00 UTC+3) | all tests on all 6 devices |
+| `smoke.yml` | daily at 02:00 UTC (05:00 UTC+3) | all tests on all 6 devices |
 | `manual.yml` | Actions → Manual → Run workflow | choose base URL, test filter and device |
 
 Both call `run-tests.yml`, which runs in the `mcr.microsoft.com/playwright` container and retries a
@@ -108,7 +108,7 @@ Every run, passed, failed or cancelled (including one that hits the time limit),
 - **Run summary** on the GitHub run page: the same counts plus a page × device table, one row per page,
   where each cell sums up every check on that page and device (✅ all passed, 🔁 something passed only
   after a retry, ❌ something failed), and every failed test with its error.
-- **Artifact** `playwright-report-<run start, UTC+3>` (e.g. `playwright-report-2026-10-30_10-00`), kept
+- **Artifact** `playwright-report-<run start, UTC+3>` (e.g. `playwright-report-2026-10-30_05-00`), kept
   14 days: the HTML report, plus screenshots and one trace per failed test (from its first failed
   attempt). A passing run's report is a few MB. Unzip it and open it with
   `npx playwright show-report <folder>`; each failed test links to its trace.

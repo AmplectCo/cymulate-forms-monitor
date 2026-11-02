@@ -2,7 +2,7 @@ name: Smoke
 
 on:
   schedule:
-    - cron: '0 7 * * *'  # 10:00 UTC+3
+    - cron: '0 2 * * *'  # 05:00 UTC+3
 
 concurrency:
   group: ${{ github.workflow }}
